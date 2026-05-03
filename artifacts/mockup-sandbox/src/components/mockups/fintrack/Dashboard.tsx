@@ -57,14 +57,27 @@ export function Dashboard() {
   const [selectedMonthIndex, setSelectedMonthIndex] = useState(MONTHLY_DATA.length - 1);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedItems, setSelectedItems] = useState<Record<string, { id: string; label: string; category: string; monthIdx?: number }>>({});
 
-  const selectedMonth = MONTHLY_DATA[selectedMonthIndex];
-  const suggestion = getInvestmentSuggestion(selectedMonth.balance);
+  // Derive display month(s) from selected month chips
+  const selectedMonthChips = Object.values(selectedItems).filter(s => s.category === 'Months');
+  const activeMonthIndices = selectedMonthChips.length > 0
+    ? selectedMonthChips.map(s => s.monthIdx!).sort((a, b) => a - b)
+    : [selectedMonthIndex];
 
-  const income = useCountUp(selectedMonth.totalIncome);
-  const expense = useCountUp(selectedMonth.totalExpense);
-  const balance = useCountUp(selectedMonth.balance);
-  const rate = useCountUp(Math.round(selectedMonth.savingsRate * 10));
+  // Aggregate KPIs across all active months
+  const activeMonths = activeMonthIndices.map(i => MONTHLY_DATA[i]);
+  const aggIncome  = activeMonths.reduce((s, m) => s + m.totalIncome, 0);
+  const aggExpense = activeMonths.reduce((s, m) => s + m.totalExpense, 0);
+  const aggBalance = aggIncome - aggExpense;
+  const aggRate    = activeMonths.reduce((s, m) => s + m.savingsRate, 0) / activeMonths.length;
+
+  const suggestion = getInvestmentSuggestion(aggBalance / activeMonths.length);
+
+  const income  = useCountUp(aggIncome);
+  const expense = useCountUp(aggExpense);
+  const balance = useCountUp(aggBalance);
+  const rate    = useCountUp(Math.round(aggRate * 10));
 
   if (navTarget) {
     const labels: Record<string, string> = { entry: 'Monthly Entry', suggestions: 'Investment Suggestions', reports: 'Financial Reports', masters: 'Masters', login: 'Login (Logout)' };
@@ -82,133 +95,182 @@ export function Dashboard() {
     );
   }
 
-  const monthLabel = `${selectedMonth.month} ${selectedMonth.year}`;
-  const expensePct = Math.round((selectedMonth.totalExpense / selectedMonth.totalIncome) * 100);
-  const savingsLabel = selectedMonth.savingsRate >= 40 ? 'Excellent!' : selectedMonth.savingsRate >= 25 ? 'Good job!' : 'Keep saving!';
+  const monthLabel = activeMonths.length > 1
+    ? `${activeMonths[0].month} – ${activeMonths[activeMonths.length - 1].month} ${activeMonths[0].year} (${activeMonths.length} months)`
+    : `${activeMonths[0].month} ${activeMonths[0].year}`;
+  const expensePct = aggIncome > 0 ? Math.round((aggExpense / aggIncome) * 100) : 0;
+  const savingsLabel = aggRate >= 40 ? 'Excellent!' : aggRate >= 25 ? 'Good job!' : 'Keep saving!';
 
-  // ── Search data sources ──────────────────────────────────────────────────
-  type SearchResult = { id: string; label: string; sub: string; category: string; icon: React.ReactNode; action?: () => void };
+  // ── Search helpers ────────────────────────────────────────────────────────
+  type SResult = { id: string; label: string; sub: string; category: string; icon: React.ReactNode; isAction?: boolean; monthIdx?: number };
   const q = searchQuery.trim().toLowerCase();
-  const allResults: SearchResult[] = [
-    ...MONTHLY_DATA.map((m, i) => ({
-      id: `month-${i}`, label: `${m.month} ${m.year}`,
-      sub: `Income ₹${(m.totalIncome/1000).toFixed(0)}K · Expense ₹${(m.totalExpense/1000).toFixed(0)}K · Balance ₹${(m.balance/1000).toFixed(0)}K`,
-      category: 'Months', icon: <Calendar size={14} />,
-      action: () => { setSelectedMonthIndex(i); setSearchOpen(false); setSearchQuery(''); }
-    })),
-    ...INCOME_TYPES.map((t, i) => ({
-      id: `inc-${i}`, label: t, sub: 'Income type', category: 'Income Types', icon: <DollarSign size={14} />,
-    })),
-    ...EXPENSE_CATEGORIES.map((c, i) => ({
-      id: `exp-${i}`, label: c, sub: 'Expense category', category: 'Expense Categories', icon: <ShoppingCart size={14} />,
-    })),
-    { id: 'qa-entry', label: 'Add / Edit Monthly Entry', sub: 'Log income and expenses', category: 'Quick Actions', icon: <Plus size={14} />, action: () => { setNavTarget('entry'); setSearchOpen(false); setSearchQuery(''); } },
-    { id: 'qa-reports', label: 'View Reports', sub: 'Charts and 6-month trends', category: 'Quick Actions', icon: <BarChart2 size={14} />, action: () => { setNavTarget('reports'); setSearchOpen(false); setSearchQuery(''); } },
-    { id: 'qa-suggestions', label: 'Investment Suggestions', sub: 'Smart advice for your savings', category: 'Quick Actions', icon: <Lightbulb size={14} />, action: () => { setNavTarget('suggestions'); setSearchOpen(false); setSearchQuery(''); } },
-    { id: 'qa-masters', label: 'Manage Masters', sub: 'Income types & expense categories', category: 'Quick Actions', icon: <Zap size={14} />, action: () => { setNavTarget('masters'); setSearchOpen(false); setSearchQuery(''); } },
+
+  const catColor: Record<string, string> = { Months: '#1A4FBA', 'Income Types': '#10B981', 'Expense Categories': '#F59E0B', 'Quick Actions': '#7C3AED' };
+  const catBg: Record<string, string>    = { Months: '#EBF3FF', 'Income Types': '#D1FAE5', 'Expense Categories': '#FEF3C7', 'Quick Actions': '#EDE9FE' };
+
+  const allResults: SResult[] = [
+    ...MONTHLY_DATA.map((m, i) => ({ id: `month-${i}`, label: `${m.month} ${m.year}`, sub: `Income ₹${(m.totalIncome/1000).toFixed(0)}K · Expenses ₹${(m.totalExpense/1000).toFixed(0)}K · Balance ₹${(m.balance/1000).toFixed(0)}K`, category: 'Months', icon: <Calendar size={13} />, monthIdx: i })),
+    ...INCOME_TYPES.map((t, i)       => ({ id: `inc-${i}`,   label: t, sub: 'Income type',        category: 'Income Types',       icon: <DollarSign size={13} /> })),
+    ...EXPENSE_CATEGORIES.map((c, i) => ({ id: `exp-${i}`,   label: c, sub: 'Expense category',   category: 'Expense Categories', icon: <ShoppingCart size={13} /> })),
+    { id: 'qa-entry',       label: 'Add / Edit Monthly Entry',    sub: 'Log income and expenses',            category: 'Quick Actions', icon: <Plus size={13} />,     isAction: true },
+    { id: 'qa-reports',     label: 'View Reports',                sub: 'Charts and 6-month trends',          category: 'Quick Actions', icon: <BarChart2 size={13} />, isAction: true },
+    { id: 'qa-suggestions', label: 'Investment Suggestions',      sub: 'Smart advice for your savings',      category: 'Quick Actions', icon: <Lightbulb size={13} />, isAction: true },
+    { id: 'qa-masters',     label: 'Manage Masters',              sub: 'Income types & expense categories',  category: 'Quick Actions', icon: <Zap size={13} />,      isAction: true },
   ];
+
+  const navActions: Record<string, string> = { 'qa-entry': 'entry', 'qa-reports': 'reports', 'qa-suggestions': 'suggestions', 'qa-masters': 'masters' };
 
   const filtered = q
     ? allResults.filter(r => r.label.toLowerCase().includes(q) || r.sub.toLowerCase().includes(q) || r.category.toLowerCase().includes(q))
     : allResults.filter(r => r.category === 'Months' || r.category === 'Quick Actions');
 
-  const grouped: Record<string, SearchResult[]> = {};
+  const grouped: Record<string, SResult[]> = {};
   filtered.forEach(r => { grouped[r.category] = grouped[r.category] ? [...grouped[r.category], r] : [r]; });
 
-  const categoryColors: Record<string, string> = {
-    'Months': '#1A4FBA', 'Income Types': '#10B981', 'Expense Categories': '#F59E0B', 'Quick Actions': '#7C3AED'
+  const toggleItem = (r: SResult) => {
+    if (r.isAction) { setNavTarget(navActions[r.id]); setSearchOpen(false); setSearchQuery(''); return; }
+    setSelectedItems(prev => {
+      const next = { ...prev };
+      if (next[r.id]) delete next[r.id];
+      else next[r.id] = { id: r.id, label: r.label, category: r.category, monthIdx: r.monthIdx };
+      return next;
+    });
   };
-  const categoryBg: Record<string, string> = {
-    'Months': '#EBF3FF', 'Income Types': '#D1FAE5', 'Expense Categories': '#FEF3C7', 'Quick Actions': '#EDE9FE'
-  };
+
+  const removeChip = (id: string) => setSelectedItems(prev => { const n = { ...prev }; delete n[id]; return n; });
+  const clearAll   = () => { setSelectedItems({}); setSearchQuery(''); };
+  const chips      = Object.values(selectedItems);
+  const totalSelected = chips.length;
 
   const searchIcon = (
     <button
       onClick={() => setSearchOpen(true)}
       title="Search"
-      style={{ width: 36, height: 36, borderRadius: 10, background: '#F5F8FF', border: '1.5px solid #D1E3FF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', transition: 'all 0.15s' }}
+      style={{ position: 'relative', width: 36, height: 36, borderRadius: 10, background: '#F5F8FF', border: '1.5px solid #D1E3FF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', transition: 'all 0.15s' }}
       onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#EBF3FF'; (e.currentTarget as HTMLButtonElement).style.color = '#1A4FBA'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#1A4FBA'; }}
       onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#F5F8FF'; (e.currentTarget as HTMLButtonElement).style.color = '#64748B'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#D1E3FF'; }}
     >
       <Search size={16} />
+      {totalSelected > 0 && (
+        <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 16, height: 16, borderRadius: 99, background: '#1A4FBA', color: '#fff', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', border: '2px solid #fff' }}>
+          {totalSelected}
+        </span>
+      )}
     </button>
   );
 
   return (
     <AppLayout currentPage="dashboard" onNavigate={setNavTarget} user={MOCK_USER} headerRight={searchIcon}>
-      {/* ── Search overlay ───────────────────────────────────────────────── */}
+      {/* ── Multi-select Search overlay ──────────────────────────────────── */}
       {searchOpen && (
         <div
-          style={{ position: 'fixed', inset: 0, background: 'rgba(15,30,60,0.5)', backdropFilter: 'blur(6px)', zIndex: 500, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 80 }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(15,30,60,0.5)', backdropFilter: 'blur(6px)', zIndex: 500, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 72 }}
           onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
         >
-          <div
-            style={{ width: '100%', maxWidth: 560, background: '#fff', borderRadius: 20, boxShadow: '0 24px 80px rgba(0,0,0,0.25)', overflow: 'hidden', animation: 'searchIn 0.18s ease' }}
-            onClick={e => e.stopPropagation()}
-          >
-            <style>{`@keyframes searchIn { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:none} }`}</style>
+          <div style={{ width: '100%', maxWidth: 580, background: '#fff', borderRadius: 20, boxShadow: '0 24px 80px rgba(0,0,0,0.25)', overflow: 'hidden', animation: 'searchIn 0.18s ease' }} onClick={e => e.stopPropagation()}>
+            <style>{`@keyframes searchIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}`}</style>
 
-            {/* Input row */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 20px', borderBottom: '1px solid #EBF3FF' }}>
-              <Search size={18} color="#1A4FBA" style={{ flexShrink: 0 }} />
+            {/* ── Chips row (shown when items selected) ── */}
+            {chips.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '12px 16px 8px', borderBottom: '1px solid #EBF3FF', background: '#FAFCFF' }}>
+                {chips.map(chip => (
+                  <span key={chip.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: catBg[chip.category], color: catColor[chip.category], border: `1px solid ${catColor[chip.category]}30`, borderRadius: 999, padding: '4px 10px', fontSize: 12, fontWeight: 600 }}>
+                    {chip.label}
+                    <button onClick={() => removeChip(chip.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: catColor[chip.category], display: 'flex', alignItems: 'center', padding: 0, opacity: 0.7 }}>
+                      <X size={11} />
+                    </button>
+                  </span>
+                ))}
+                <button onClick={clearAll} style={{ fontSize: 12, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', marginLeft: 'auto', fontWeight: 600 }}>Clear all</button>
+              </div>
+            )}
+
+            {/* ── Search input ── */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 18px', borderBottom: '1px solid #EBF3FF' }}>
+              <Search size={17} color="#1A4FBA" style={{ flexShrink: 0 }} />
               <input
                 autoFocus
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 onKeyDown={e => e.key === 'Escape' && (setSearchOpen(false), setSearchQuery(''))}
-                placeholder="Search months, income types, expenses, actions…"
-                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, fontFamily: "'Inter', sans-serif", color: '#0F1E3C', background: 'transparent', fontWeight: 500 }}
+                placeholder="Search months, income types, expense categories…"
+                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14, fontFamily: "'Inter', sans-serif", color: '#0F1E3C', background: 'transparent', fontWeight: 500 }}
               />
-              {searchQuery && (
-                <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', display: 'flex', padding: 0 }}>
-                  <X size={16} />
-                </button>
-              )}
-              <kbd style={{ fontSize: 11, color: '#94A3B8', background: '#F1F5F9', borderRadius: 6, padding: '3px 7px', fontFamily: 'monospace', border: '1px solid #D1E3FF', cursor: 'pointer' }} onClick={() => { setSearchOpen(false); setSearchQuery(''); }}>Esc</kbd>
+              {searchQuery
+                ? <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', display: 'flex', padding: 0 }}><X size={15} /></button>
+                : <kbd style={{ fontSize: 11, color: '#94A3B8', background: '#F1F5F9', borderRadius: 6, padding: '3px 7px', border: '1px solid #D1E3FF', fontFamily: 'monospace' }}>Esc</kbd>
+              }
             </div>
 
-            {/* Results */}
-            <div style={{ maxHeight: 420, overflowY: 'auto', padding: '12px 0' }}>
+            {/* ── Results list ── */}
+            <div style={{ maxHeight: 360, overflowY: 'auto', padding: '8px 0' }}>
               {Object.keys(grouped).length === 0 ? (
-                <div style={{ padding: '32px', textAlign: 'center', color: '#94A3B8', fontSize: 14 }}>
-                  No results for "<strong>{searchQuery}</strong>"
-                </div>
-              ) : (
-                Object.entries(grouped).map(([cat, results]) => (
-                  <div key={cat}>
-                    {/* Category header */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 20px 4px', marginBottom: 2 }}>
-                      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: categoryColors[cat] }}>{cat}</span>
-                      <span style={{ flex: 1, height: 1, background: categoryBg[cat] }} />
-                    </div>
-                    {/* Items */}
-                    {results.map(r => (
+                <div style={{ padding: '32px', textAlign: 'center', color: '#94A3B8', fontSize: 14 }}>No results for "<strong>{searchQuery}</strong>"</div>
+              ) : Object.entries(grouped).map(([cat, results]) => (
+                <div key={cat}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 18px 3px' }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: catColor[cat] }}>{cat}</span>
+                    <span style={{ flex: 1, height: 1, background: catBg[cat] }} />
+                    {!results[0].isAction && (
+                      <button
+                        onClick={() => {
+                          const allSelected = results.every(r => selectedItems[r.id]);
+                          setSelectedItems(prev => {
+                            const n = { ...prev };
+                            results.forEach(r => { if (allSelected) delete n[r.id]; else if (!n[r.id]) n[r.id] = { id: r.id, label: r.label, category: r.category, monthIdx: r.monthIdx }; });
+                            return n;
+                          });
+                        }}
+                        style={{ fontSize: 11, color: catColor[cat], background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}
+                      >
+                        {results.every(r => selectedItems[r.id]) ? 'Deselect all' : 'Select all'}
+                      </button>
+                    )}
+                  </div>
+                  {results.map(r => {
+                    const checked = !!selectedItems[r.id];
+                    return (
                       <div
                         key={r.id}
-                        onClick={r.action}
-                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', cursor: r.action ? 'pointer' : 'default', transition: 'background 0.12s' }}
-                        onMouseEnter={e => { if (r.action) (e.currentTarget as HTMLDivElement).style.background = categoryBg[cat]; }}
-                        onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = 'transparent'}
+                        onClick={() => toggleItem(r)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 18px', cursor: 'pointer', background: checked ? `${catBg[cat]}` : 'transparent', transition: 'background 0.1s', borderLeft: checked ? `3px solid ${catColor[cat]}` : '3px solid transparent' }}
+                        onMouseEnter={e => { if (!checked) (e.currentTarget as HTMLDivElement).style.background = '#F5F8FF'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = checked ? catBg[cat] : 'transparent'; }}
                       >
-                        <div style={{ width: 30, height: 30, borderRadius: 8, background: categoryBg[cat], color: categoryColors[cat], display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          {r.icon}
-                        </div>
+                        {/* Checkbox / icon */}
+                        {r.isAction ? (
+                          <div style={{ width: 28, height: 28, borderRadius: 8, background: catBg[cat], color: catColor[cat], display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{r.icon}</div>
+                        ) : (
+                          <div style={{ width: 20, height: 20, borderRadius: 5, border: `2px solid ${checked ? catColor[cat] : '#CBD5E1'}`, background: checked ? catColor[cat] : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+                            {checked && <svg width="11" height="9" viewBox="0 0 11 9" fill="none"><path d="M1 4.5L4 7.5L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                          </div>
+                        )}
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: '#0F1E3C', marginBottom: 1 }}>{r.label}</div>
+                          <div style={{ fontSize: 13, fontWeight: checked ? 700 : 500, color: checked ? catColor[cat] : '#0F1E3C', marginBottom: 1 }}>{r.label}</div>
                           <div style={{ fontSize: 11, color: '#94A3B8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.sub}</div>
                         </div>
-                        {r.action && <ChevronRight size={14} color="#CBD5E1" />}
+                        {r.isAction && <ChevronRight size={13} color="#CBD5E1" />}
                       </div>
-                    ))}
-                  </div>
-                ))
-              )}
+                    );
+                  })}
+                </div>
+              ))}
             </div>
 
-            {/* Footer hint */}
-            <div style={{ padding: '10px 20px', borderTop: '1px solid #EBF3FF', display: 'flex', gap: 16, fontSize: 11, color: '#94A3B8' }}>
-              <span>↵ Select</span><span>↑↓ Navigate</span><span>Esc Close</span>
-              <span style={{ marginLeft: 'auto' }}>{filtered.length} result{filtered.length !== 1 ? 's' : ''}</span>
+            {/* ── Footer ── */}
+            <div style={{ padding: '12px 18px', borderTop: '1px solid #EBF3FF', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 12, color: '#94A3B8', flex: 1 }}>
+                {totalSelected > 0 ? `${totalSelected} item${totalSelected > 1 ? 's' : ''} selected` : `${filtered.length} result${filtered.length !== 1 ? 's' : ''}`}
+              </span>
+              {totalSelected > 0 && (
+                <button onClick={clearAll} style={{ fontSize: 13, color: '#64748B', background: 'none', border: '1px solid #D1E3FF', borderRadius: 8, padding: '7px 16px', cursor: 'pointer', fontWeight: 600 }}>Clear</button>
+              )}
+              <button
+                onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
+                style={{ fontSize: 13, fontWeight: 700, color: '#fff', background: '#1A4FBA', border: 'none', borderRadius: 8, padding: '7px 20px', cursor: 'pointer' }}
+              >
+                {totalSelected > 0 ? 'Apply Selection' : 'Close'}
+              </button>
             </div>
           </div>
         </div>
