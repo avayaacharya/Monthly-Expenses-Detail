@@ -19,6 +19,18 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [forgotShown, setForgotShown] = useState(false);
 
+  const resetForm = () => {
+    setNavTarget(null);
+    setLoggedInUser(null);
+    setEmployeeId('');
+    setPassword('');
+    setShowPassword(false);
+    setRememberMe(false);
+    setError('');
+    setForgotShown(false);
+    setLoading(false);
+  };
+
   const handleLogin = async () => {
     setError('');
     setLoading(true);
@@ -38,7 +50,7 @@ export function LoginPage() {
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F5F8FF' }}>
         <div style={{ background: '#fff', borderRadius: 20, padding: '48px 64px', textAlign: 'center', boxShadow: '0 4px 24px rgba(26,79,186,0.1)', maxWidth: 400 }}>
           <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 700, color: '#0F1E3C', marginBottom: 20 }}>Back to Landing Page</h2>
-          <button onClick={() => setNavTarget(null)} style={{ background: '#1A4FBA', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 32px', fontFamily: "'Inter', sans-serif", fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>← Back to Login</button>
+          <button onClick={resetForm} style={{ background: '#1A4FBA', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 32px', fontFamily: "'Inter', sans-serif", fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>← Back to Login</button>
         </div>
       </div>
     );
@@ -58,7 +70,7 @@ export function LoginPage() {
             {[1,2,3].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: '#1A4FBA', opacity: 0.3, animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite` }} />)}
           </div>
           <style>{`@keyframes pulse { 0%,100%{opacity:0.3} 50%{opacity:1} }`}</style>
-          <button onClick={() => setNavTarget(null)} style={{ marginTop: 32, background: 'transparent', color: '#64748B', border: 'none', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>← Back to Login</button>
+          <button onClick={resetForm} style={{ marginTop: 32, background: 'transparent', color: '#64748B', border: 'none', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>← Back to Login</button>
         </div>
       </div>
     );
