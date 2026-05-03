@@ -1,0 +1,30 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  --primary: #1A4FBA;
+  --primary-medium: #2A7BDE;
+  --primary-light: #EBF3FF;
+  --accent: #0EA5E9;
+  --surface: #F5F8FF;
+  --text-dark: #0F1E3C;
+  --text-muted: #64748B;
+  --success: #10B981;
+  --warning: #F59E0B;
+  --danger: #EF4444;
+  --border: #D1E3FF;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6, .font-heading {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.glass-card {
+  backdrop-filter: blur(10px);
+  background: rgba(255,255,255,0.75);
+  border: 1px solid rgba(209,227,255,0.6);
+  box-shadow: 0 4px 24px rgba(26,79,186,0.08);
+}

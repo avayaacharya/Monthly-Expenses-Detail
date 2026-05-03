@@ -1,0 +1,742 @@
+[ROLE]
+You are a senior full-stack architect with 15+ years of experience building 
+enterprise-grade web applications for mid-size IT service organizations 
+(1,000–1,500 employees). You are expert in React 18 (frontend) and Java 17 
+with Spring Boot 3 (backend), RESTful API design, Spring Security with JWT 
+authentication, JPA/Hibernate ORM, and PostgreSQL. You write clean, 
+production-ready code with proper separation of concerns, DTO patterns, 
+exception handling, and a polished blue-and-white UI with parallax and 
+glassmorphism effects.
+
+[CONTEXT]
+A mid-size IT services company — "Acharya Technology" — wants to build a 
+personal Monthly Expenses Tracker web application for its employees. 
+The application helps employees log monthly income sources and expenses 
+category-by-category, auto-calculates the monthly balance 
+(income minus total expenses), and provides rule-based investment suggestions 
+based on the remaining balance.
+
+The application has the following zones and pages — all fully linked 
+in a continuous user journey from landing to reporting:
+
+  ZONE 1  →  Landing Page          (public, no login)
+      ↓
+  ZONE 2  →  Login Page            (public, credential entry)
+      ↓
+  ZONE 3  →  Dashboard             (authenticated, post-login home)
+      ↓  ↓  ↓
+      ↓  ↓  └─── Menu: Investment Suggestion Page
+      ↓  └─────── Menu: Report Page
+      └────────── Income & Expense Entry Page
+
+Every arrow above is a real, wired navigation — zero dead buttons.
+
+──────────────────────────────────────────────
+ZONE 1 — LANDING PAGE  (Route: /)
+──────────────────────────────────────────────
+Purpose: Introduce Acharya Technology and the FinTrack application 
+to the employee before they log in.
+
+Sections:
+  • Navbar: Logo "Acharya Technology | FinTrack" on left; 
+    single CTA button "Employee Login" on right
+  • Hero: Full-viewport parallax section with tagline
+    "Smart Money, Smarter Life — Your Personal Finance Companion"
+    and a prominent "Get Started → Login" button in the center
+  • About the Company: 
+    "Acharya Technology is a leading IT services firm delivering 
+    digital transformation, cloud solutions, and enterprise software 
+    for global clients since 2005. With ~1,200 employees across 
+    6 offices in India and abroad, we invest in tools that empower 
+    our people financially and professionally."
+  • What We Do: 4 icon-cards — Cloud & Infrastructure, 
+    Enterprise Software, Data Analytics, Cybersecurity
+  • Employee Benefits: "We invest in our people" — 4 cards: 
+    Health Insurance, Learning Allowance, Flexible Work, 
+    Financial Wellness Tools (this app)
+  • Why Use FinTrack: 3-column section — 
+    "Track Every Rupee", "Smart Balance Reports", 
+    "AI-Powered Investment Tips"
+  • Testimonials: 3 fictional employee quotes praising the app
+  • Footer: "© 2025 Acharya Technology. All rights reserved." 
+    + quick links: Home, Employee Login, Contact HR
+
+NAVIGATION OUT OF LANDING PAGE:
+  Every element below must call navigate('/login'):
+  • Navbar "Employee Login" button
+  • Hero "Get Started → Login" button
+  • Hero tagline sub-text link "Sign in to your account"
+  • Footer "Employee Login" quick link
+  • None of these open a new tab — all navigate in the same window
+
+──────────────────────────────────────────────
+ZONE 2 — LOGIN PAGE  (Route: /login)
+──────────────────────────────────────────────
+Purpose: Authenticate the employee using their credentials. 
+On success, take them directly into the portal.
+
+Layout:
+  • Left panel (40% width on desktop, hidden on mobile): 
+    Blue gradient panel showing company logo, tagline, and 
+    a visual illustration of the app
+  • Right panel (60% width): Login form
+
+Form fields:
+  • Employee ID or Email  (text input, required)
+  • Password             (password input with show/hide toggle, required)
+  • "Remember me" checkbox (stores employee ID in localStorage)
+  • "Forgot password?" link (UI only, shows a toast: 
+    "Please contact HR at hr@acharyatech.com")
+  • "Sign In" button with spinner during API call
+
+Mock authentication (for development — replace with real API in production):
+  • EMP001 / 1234  →  logs in as "Ravi Shankar"   (role: EMPLOYEE)
+  • EMP002 / 1234  →  logs in as "Priya Menon"    (role: EMPLOYEE)
+  • EMP003 / 1234  →  logs in as "Arjun Das"      (role: EMPLOYEE)
+  • Any other combination → inline error below password field:
+    "Invalid Employee ID or password. Please try again."
+
+NAVIGATION OUT OF LOGIN PAGE:
+  • On successful authentication → POST /api/auth/login 
+    → store JWT in AuthContext → navigate('/dashboard')
+    (This is Link 2: Login Page → Dashboard through User Credential)
+  • "← Back to Home" text link (top-left of form panel) 
+    → navigate('/')
+  • After successful login, the full authenticated menu becomes 
+    available. The employee does NOT need to return to login again 
+    until they explicitly logout.
+
+──────────────────────────────────────────────
+ZONE 3 — AUTHENTICATED PORTAL
+──────────────────────────────────────────────
+All pages in Zone 3 share a common Navbar and are protected routes.
+If the user is not authenticated, any /dashboard, /entry, 
+/suggestions, /reports, /masters URL must redirect to /login 
+preserving the intended destination in location.state.from.
+
+PERSISTENT NAVBAR (visible on all Zone 3 pages):
+  The navbar is the central navigation hub for the entire portal.
+  It contains these 5 items — all wired and active:
+
+  ┌─────────────────────────────────────────────────────────────┐
+  │  🏠 Dashboard  │  📝 Entry  │  💡 Suggestions  │  📊 Reports  │  ⚙ Masters  │  Logout  │
+  └─────────────────────────────────────────────────────────────┘
+
+  • "Dashboard"    → navigate('/dashboard')
+  • "Entry"        → navigate('/entry')         (Link 3)
+  • "Suggestions"  → navigate('/suggestions')   (Link 4)
+  • "Reports"      → navigate('/reports')       (Link 5)
+  • "Masters"      → navigate('/masters')
+  • "Logout"       → clears JWT + AuthContext → navigate('/')
+  • Logo click     → navigate('/dashboard')
+  • Active page: highlight current nav item with blue underline 
+    + bold text using useLocation()
+  • Mobile (< 768px): collapse to hamburger → slide-out drawer 
+    with all 6 items
+
+──────────────────────────────────────────
+PAGE A — DASHBOARD  (Route: /dashboard)
+──────────────────────────────────────────
+This is the home screen after login. It summarizes the employee's 
+financial health and provides quick jumps to all major features.
+
+Sections:
+  • Greeting bar: "Good [morning/afternoon/evening], [Full Name] 👋" 
+    + today's date in "Monday, 12 May 2025" format
+  • Last Month Summary Card (4 KPI tiles in a row):
+      - Total Income       (blue, with ₹ icon)
+      - Total Expenses     (orange, with ₹ icon)
+      - Balance            (green if positive, red if negative)
+      - Savings Rate %     (teal, formula: balance/income × 100)
+  • 3-Month Balance Trend: bar chart (Recharts BarChart) 
+    showing last 3 months' balance. Each bar is clickable.
+  • Investment Suggestion Banner: 
+    Compact card showing the suggestion category for last month 
+    (e.g. "Strong Savings Month — See full investment advice →")
+  • Quick Action Buttons (large, prominent):
+      Button 1: "📝 Add / Edit This Month's Entry"
+      Button 2: "💡 View Investment Suggestions"
+      Button 3: "📊 View Reports"
+
+NAVIGATION OUT OF DASHBOARD:
+  • "Add / Edit This Month's Entry" button   → navigate('/entry')
+    (This is Link 3: Login → Entry page — also reachable from Dashboard)
+  • "View Investment Suggestions" button     → navigate('/suggestions')
+    (This is Link 4: Menu option for Investment Suggestion Page)
+  • "View Reports" button                   → navigate('/reports')
+    (This is Link 5: Menu option for Report Page)
+  • Clicking a bar in the 3-month trend chart 
+    → navigate('/entry/' + monthYear) to edit that month
+  • Investment Suggestion Banner "See full advice →" link 
+    → navigate('/suggestions')
+  • All navbar links function as described above
+
+──────────────────────────────────────────────────────────
+PAGE B — INCOME & EXPENSE ENTRY PAGE  (Route: /entry)
+(Link 3: From Login/Dashboard → Income and Expense Detail Entry)
+──────────────────────────────────────────────────────────
+This page is where the employee enters all financial data for a month.
+It is a 4-step wizard with an animated progress bar at the top.
+
+STEP 1 — Select Period
+  • "Select Month" dropdown (Jan–Dec)
+  • "Select Year" dropdown (current year ± 2)
+  • "Continue →" button → advances to Step 2
+  • If entry for selected month already exists, show yellow banner:
+    "You have an existing entry for this month. 
+     Continuing will update it." with "Continue Anyway" confirmation.
+
+STEP 2 — Income Entry
+  • Page heading: "Enter Income for [Month Year]"
+  • Dynamic row table with columns: 
+      # | Income Type | Amount (₹) | Action
+  • Each row: Income Type dropdown + Amount input + Remove (✕) button
+  • "+ Add Income Source" button appends a new empty row
+  • Income Type dropdown options (from master):
+      Salary, LIC Pension, Tour Allowance, Balance Carried Forward,
+      Freelance Income, Bonus / Incentive, Rental Income, 
+      Interest Income, Other Income
+  • Live Total bar at bottom: "Total Income: ₹ XX,XXX" 
+    (updates on every keystroke, formatted en-IN)
+  • "← Back" button → returns to Step 1
+  • "Next: Add Expenses →" button → advances to Step 3
+  • "Manage Income Types" small link → navigate('/masters')
+
+STEP 3 — Expense Entry
+  • Page heading: "Enter Expenses for [Month Year]"
+  • Dynamic row table: # | Category | Description | Amount (₹) | Action
+  • "+ Add Expense" button appends a new empty row
+  • Expense Category dropdown options (all 22):
+      Home Loan EMI, House Rent, Savings (3 A/C), Car EMI (Gadi),
+      Nipu Expenses, Electricity Bill, Grocery, DTH / D2H,
+      Credit Card Bill, Nexon Car Servicing, Jio Recharge,
+      Abacus + Dance + Tuition Fees, Scooty Maintenance,
+      Insurance Premium, Bangalore House Maintenance, Gym Membership,
+      Own Shop Expenses, Nipu Course Fees, Vodafone Bill,
+      Maid Salary, School Van Fees, Household Items / Misc
+  • Live Total bar: "Total Expenses: ₹ XX,XXX"
+  • "← Back" → Step 2
+  • "Next: Review →" → Step 4
+  • "Manage Expense Categories" small link → navigate('/masters')
+
+STEP 4 — Review & Submit
+  • Income summary table (read-only)
+  • Expense summary table (read-only)
+  • Balance Summary Box (large, centered):
+      ┌────────────────────────────────────┐
+      │  Total Income:    ₹ XX,XXX        │
+      │  Total Expenses:  ₹ XX,XXX        │
+      │  ─────────────────────────────    │
+      │  Balance:         ₹ XX,XXX  ✅/❌ │
+      │  Savings Rate:    XX%             │
+      └────────────────────────────────────┘
+  • Investment Suggestion Preview Panel:
+    Compact version of the suggestion (same rule logic as 
+    /suggestions page). Shows icon + one-line advice.
+    "See full suggestion →" link → navigate('/suggestions')
+  • "← Edit Income" link → Step 2
+  • "← Edit Expenses" link → Step 3
+  • "💾 Save Entry" button:
+      → POST /api/entries
+      → Show success toast "Entry saved successfully!"
+      → navigate('/dashboard')
+  • Progress bar steps are clickable to jump back 
+    (cannot jump forward past uncompleted steps)
+
+NAVIGATION OUT OF ENTRY PAGE:
+  • Step 4 "Save Entry" success            → navigate('/dashboard')
+  • Step 4 "See full suggestion →"         → navigate('/suggestions')
+  • "Manage Income Types" (Step 2)         → navigate('/masters')
+  • "Manage Expense Categories" (Step 3)   → navigate('/masters')
+  • Navbar links (Dashboard, Suggestions, Reports, Masters, Logout)
+
+──────────────────────────────────────────────────────────────
+PAGE C — INVESTMENT SUGGESTION PAGE  (Route: /suggestions)
+(Link 4: Menu option → Investment Suggestion Page)
+──────────────────────────────────────────────────────────────
+This page shows the full, detailed investment advice for the employee 
+based on their most recent month's balance. It is always accessible 
+from the navbar "Suggestions" link and from dashboard/entry shortcuts.
+
+Layout:
+  • Page header: "Your Investment Suggestions" 
+    + sub-heading: "Based on your [Month Year] balance of ₹ XX,XXX"
+  • Month selector dropdown (top-right): lets employee view 
+    suggestions for any previously saved month
+
+  • Balance Status Banner (full-width colored card):
+      - If balance < 0:      RED   banner — "Deficit Month"
+      - If balance 1–5000:   AMBER banner — "Low Savings"
+      - If balance 5001–15000: TEAL banner — "Moderate Savings"
+      - If balance 15001–40000: BLUE banner — "Strong Savings"
+      - If balance > 40000:  GREEN banner — "Excellent Savings"
+
+  • Suggestion Detail Card (main content area):
+    Rendered based on balance tier:
+
+    TIER 1 (balance < 0):
+      Icon: ⚠️ (warning)
+      Heading: "Expenses Exceed Income This Month"
+      Advice points:
+        • Review and reduce DTH/D2H and Gym subscriptions
+        • Pause credit card spending; clear outstanding balance first
+        • Check if any loan EMI restructuring is possible
+        • Set a strict grocery and household budget for next month
+        • Target: bring balance to at least ₹0 next month
+
+    TIER 2 (balance ₹1 – ₹5,000):
+      Icon: 💰 (small savings)
+      Heading: "Small Balance — Build the Habit"
+      Advice points:
+        • Open or top-up a Recurring Deposit (RD) with this amount
+        • Add to your emergency fund (target: 3–6 months of expenses)
+        • Even ₹1,000/month in RD over 3 years = ₹36,000+ with interest
+        • Avoid impulse purchases next month to grow this surplus
+
+    TIER 3 (balance ₹5,001 – ₹15,000):
+      Icon: 📈 (growing)
+      Heading: "Good Discipline — Start Investing"
+      Advice split:
+        • 50% → Liquid Mutual Fund (e.g. SBI Liquid Fund, Parag Parikh)
+        • 30% → PPF or NPS contribution (tax-saving + long-term)
+        • 20% → Emergency savings account
+        • Tip: Set up an automatic SIP on salary day
+
+    TIER 4 (balance ₹15,001 – ₹40,000):
+      Icon: 🚀 (strong)
+      Heading: "Strong Savings — Diversify Now"
+      Advice split:
+        • 40% → Equity mutual funds (Nifty 50 index fund)
+        • 30% → PPF / NPS
+        • 20% → Recurring Deposit
+        • 10% → Gold ETF or Digital Gold (Sovereign Gold Bond)
+        • Tip: Review portfolio quarterly
+
+    TIER 5 (balance > ₹40,000):
+      Icon: 🏆 (excellent)
+      Heading: "Excellent! Maximize Your Wealth"
+      Advice split:
+        • 50% → Equity: mix of large-cap + mid-cap index funds
+        • 20% → Debt mutual funds for stability
+        • 15% → PPF / NPS (maximize 80C + 80CCD benefits)
+        • 10% → Gold ETF or Sovereign Gold Bond
+        •  5% → High-yield Fixed Deposit (1-year tenure)
+        • Tip: Increase SIP by 10% every year (step-up SIP)
+
+  • Allocation Pie Chart (Recharts PieChart):
+    Visualizes the recommended % allocation for the current tier.
+    Show only for Tiers 2–5 (no allocation chart for deficit month).
+
+  • Disclaimer card (always visible, bottom of page):
+    "⚠️ These suggestions are generated based on general financial 
+    planning principles and your reported balance amount. They are 
+    not personalized financial advice. Please consult a SEBI-registered 
+    certified financial advisor before making any investment decisions."
+
+  • "← Back to Dashboard" button → navigate('/dashboard')
+  • "📝 Update This Month's Entry" button → navigate('/entry')
+
+NAVIGATION OUT OF SUGGESTIONS PAGE:
+  • "Back to Dashboard"                     → navigate('/dashboard')
+  • "Update This Month's Entry"             → navigate('/entry')
+  • Navbar links (all active as described)
+
+──────────────────────────────────────────────────────
+PAGE D — REPORT PAGE  (Route: /reports)
+(Link 5: Menu option → Report Page)
+──────────────────────────────────────────────────────
+This page gives the employee a visual and tabular overview of their 
+financial history across multiple months.
+
+Layout:
+  • Page header: "Financial Reports"
+  • Month/Year selector (top-right): view detailed report for any month.
+    Default: current month or most recent saved month.
+
+  • Section 1 — Monthly Overview Cards (same 4 KPI tiles as Dashboard)
+    for the selected month: Income, Expenses, Balance, Savings Rate
+
+  • Section 2 — Income vs Expenses Chart:
+    Recharts BarChart — side-by-side bars for Income and Expenses.
+    X-axis: last 6 months. Y-axis: ₹ amount.
+    Tooltip shows formatted ₹ values on hover.
+
+  • Section 3 — Expense Breakdown Chart:
+    Recharts BarChart (horizontal) — one bar per expense category 
+    for the selected month, sorted highest to lowest.
+    Color-coded: top 3 expenses highlighted in orange/red.
+
+  • Section 4 — 6-Month Trend Table:
+    Columns: Month | Total Income | Total Expenses | Balance | Savings %
+    Rows: last 6 saved months, most recent first.
+    Balance column: green text if positive, red text if negative.
+    "No data" placeholder row if fewer than 6 months exist.
+
+  • Section 5 — Suggestion Summary Column (right sidebar):
+    For each of the last 3 months, show a compact suggestion badge:
+    Month name + balance tier badge 
+    (e.g. "April 2025 — 🚀 Strong Savings")
+    "See full advice →" link for each → navigate('/suggestions')
+
+  • Export Button: "⬇ Download Report as PDF"
+    Uses window.print() with a @media print stylesheet that 
+    hides the navbar and shows only the report content cleanly.
+
+  • "Add Missing Month" button: visible only if selected month 
+    has no data → navigate('/entry/' + selectedMonthYear)
+
+NAVIGATION OUT OF REPORTS PAGE:
+  • "Add Missing Month"                     → navigate('/entry/:monthYear')
+  • "See full advice →" (suggestion badges) → navigate('/suggestions')
+  • "← Back to Dashboard" breadcrumb        → navigate('/dashboard')
+  • Navbar links (all active)
+
+──────────────────────────────────────────
+PAGE E — MASTERS PAGE  (Route: /masters)
+──────────────────────────────────────────
+Purpose: Let the employee manage their custom income types and 
+expense categories. System defaults cannot be deleted.
+
+Layout:
+  • Two tabs: "Income Types" | "Expense Categories"
+  • Each tab: list of all types with Name | System/Custom badge | Delete button
+  • "System" badge: grey, non-deletable; shows tooltip on hover: 
+    "System defaults cannot be deleted"
+  • "Custom" badge: blue, deletable with confirmation modal
+  • "＋ Add New [Income Type / Expense Category]" button: 
+    opens inline form (text input + Save button)
+  • Changes persist via API (POST/DELETE /api/masters/...)
+  • Immediately reflects in Entry Page dropdowns (re-fetched on mount)
+
+NAVIGATION OUT OF MASTERS PAGE:
+  • "← Back to Entry Form" button            → navigate('/entry')
+  • "← Back to Dashboard" breadcrumb         → navigate('/dashboard')
+  • Navbar links (all active)
+
+[TASK]
+
+═══════════════════════════════════════════════════════════
+COMPLETE NAVIGATION FLOW SUMMARY
+(All 5 links must be implemented end-to-end — zero dead buttons)
+═══════════════════════════════════════════════════════════
+
+LINK 1 — Landing Page → Login Page
+  Triggers: Navbar button, Hero CTA button, Hero sub-link, Footer link
+  All call: navigate('/login')
+  Route: /  →  /login
+
+LINK 2 — Login Page → Dashboard (through user credentials)
+  Trigger: "Sign In" button after successful POST /api/auth/login
+  On success: store employee profile in AuthContext, navigate('/dashboard')
+  On failure: show inline error message, stay on /login
+  Route: /login  →  /dashboard
+
+LINK 3 — Dashboard/Post-Login → Income & Expense Entry Page
+  Triggers:
+    • Dashboard "Add / Edit This Month's Entry" button
+    • Dashboard trend chart bar click (pre-fills month)
+    • Navbar "Entry" link (from any authenticated page)
+  All call: navigate('/entry') or navigate('/entry/:monthYear')
+  Route: /dashboard  →  /entry
+
+LINK 4 — Menu → Investment Suggestion Page
+  Triggers:
+    • Navbar "Suggestions" link (from any authenticated page)
+    • Dashboard "View Investment Suggestions" button
+    • Dashboard suggestion banner "See full advice →" link
+    • Entry Page Step 4 "See full suggestion →" link
+    • Reports Page "See full advice →" badges
+  All call: navigate('/suggestions')
+  Route: any page  →  /suggestions
+
+LINK 5 — Menu → Report Page
+  Triggers:
+    • Navbar "Reports" link (from any authenticated page)
+    • Dashboard "View Reports" button
+    • Dashboard KPI tiles (clicking Income/Expense tile → reports)
+  All call: navigate('/reports')
+  Route: any page  →  /reports
+
+FULL USER JOURNEY (must work end-to-end):
+  / (Landing)
+    → /login (Employee enters EMP001 / 1234)
+      → /dashboard (sees last month summary + trend chart)
+        → /entry (enters income and expenses for current month)
+          → saves → back to /dashboard (updated data)
+        → /suggestions (reads investment advice for saved month)
+          → back to /dashboard
+        → /reports (sees 6-month trend + charts + PDF export)
+          → back to /dashboard
+        → /masters (manages custom types)
+          → back to /entry
+
+═══════════════════════════════════════════════════════════
+SECTION A — REACT FRONTEND (src/)
+═══════════════════════════════════════════════════════════
+Tech stack: React 18, React Router v6, Axios, Recharts, Lucide React, Vite
+
+ROUTE CONFIGURATION (src/App.jsx):
+  <Routes>
+    <Route path="/"             element={<LandingPage />} />
+    <Route path="/login"        element={<LoginPage />} />
+    <Route element={<ProtectedRoute />}>
+      <Route path="/dashboard"        element={<Dashboard />} />
+      <Route path="/entry"            element={<MonthlyEntry />} />
+      <Route path="/entry/:monthYear" element={<MonthlyEntry />} />
+      <Route path="/suggestions"      element={<SuggestionsPage />} />
+      <Route path="/reports"          element={<Reports />} />
+      <Route path="/reports/:monthYear" element={<Reports />} />
+      <Route path="/masters"          element={<Masters />} />
+    </Route>
+    <Route path="*" element={<Navigate to="/" replace />} />
+  </Routes>
+
+AXIOS SETUP (src/services/api.js):
+  baseURL: 'http://localhost:8080/api'
+  withCredentials: true
+  Request interceptor: attach Authorization header from AuthContext
+  Response interceptor: 401 → clear auth → navigate('/login')
+
+SERVICE FILES:
+  src/services/authService.js       login(), logout(), getMe()
+  src/services/entryService.js      getEntries(), getEntry(m,y), 
+                                    saveEntry(), deleteEntry()
+  src/services/masterService.js     getIncomeTypes(), getExpenseCategories(),
+                                    addIncomeType(), deleteIncomeType(),
+                                    addExpenseCategory(), deleteExpenseCategory()
+  src/services/reportService.js     getTrend(months), getMonthlySummary(m,y)
+  src/services/suggestionService.js getSuggestion(balance) — calls 
+                                    utils/investmentSuggestions.js
+
+FRONTEND FILE LIST (generate all, no truncation):
+  F1.  package.json
+  F2.  vite.config.js
+  F3.  src/main.jsx
+  F4.  src/App.jsx
+  F5.  src/routes/ProtectedRoute.jsx
+  F6.  src/context/AuthContext.jsx
+  F7.  src/services/api.js
+  F8.  src/services/authService.js
+  F9.  src/services/entryService.js
+  F10. src/services/masterService.js
+  F11. src/services/reportService.js
+  F12. src/services/suggestionService.js
+  F13. src/utils/investmentSuggestions.js
+  F14. src/utils/formatCurrency.js
+  F15. src/data/masters.js
+  F16. src/components/Navbar.jsx
+  F17. src/components/Footer.jsx
+  F18. src/components/ToastNotification.jsx
+  F19. src/components/ConfirmModal.jsx
+  F20. src/components/SkeletonCard.jsx
+  F21. src/pages/LandingPage.jsx
+  F22. src/pages/LoginPage.jsx
+  F23. src/pages/Dashboard.jsx
+  F24. src/pages/MonthlyEntry.jsx
+  F25. src/pages/SuggestionsPage.jsx
+  F26. src/pages/Reports.jsx
+  F27. src/pages/Masters.jsx
+
+═══════════════════════════════════════════════════════════
+SECTION B — SPRING BOOT BACKEND (backend/)
+═══════════════════════════════════════════════════════════
+Tech stack: Java 17, Spring Boot 3.2, Spring Security 6, JWT (jjwt 0.12),
+Spring Data JPA, PostgreSQL, Lombok, Maven
+
+DATABASE SCHEMA:
+
+  Table: users
+    id            BIGSERIAL PRIMARY KEY
+    employee_id   VARCHAR(20) UNIQUE NOT NULL
+    email         VARCHAR(100) UNIQUE NOT NULL
+    full_name     VARCHAR(100) NOT NULL
+    password_hash VARCHAR(255) NOT NULL
+    role          VARCHAR(20) DEFAULT 'EMPLOYEE'
+    created_at    TIMESTAMP DEFAULT NOW()
+
+  Table: income_types
+    id            BIGSERIAL PRIMARY KEY
+    name          VARCHAR(100) NOT NULL
+    is_system     BOOLEAN DEFAULT TRUE
+    user_id       BIGINT REFERENCES users(id)
+
+  Table: expense_categories
+    id            BIGSERIAL PRIMARY KEY
+    name          VARCHAR(100) NOT NULL
+    is_system     BOOLEAN DEFAULT TRUE
+    user_id       BIGINT REFERENCES users(id)
+
+  Table: monthly_entries
+    id            BIGSERIAL PRIMARY KEY
+    user_id       BIGINT REFERENCES users(id) NOT NULL
+    month         INTEGER NOT NULL
+    year          INTEGER NOT NULL
+    total_income  DECIMAL(12,2)
+    total_expense DECIMAL(12,2)
+    balance       DECIMAL(12,2)
+    savings_rate  DECIMAL(5,2)
+    suggestion    TEXT
+    created_at    TIMESTAMP DEFAULT NOW()
+    UNIQUE (user_id, month, year)
+
+  Table: income_items
+    id                BIGSERIAL PRIMARY KEY
+    entry_id          BIGINT REFERENCES monthly_entries(id) NOT NULL
+    income_type_id    BIGINT REFERENCES income_types(id)
+    income_type_name  VARCHAR(100)
+    amount            DECIMAL(12,2) NOT NULL
+
+  Table: expense_items
+    id                   BIGSERIAL PRIMARY KEY
+    entry_id             BIGINT REFERENCES monthly_entries(id) NOT NULL
+    expense_category_id  BIGINT REFERENCES expense_categories(id)
+    category_name        VARCHAR(100)
+    description          VARCHAR(255)
+    amount               DECIMAL(12,2) NOT NULL
+
+DATA SEEDING:
+  Seed users: EMP001 "Ravi Shankar", EMP002 "Priya Menon", 
+              EMP003 "Arjun Das" — all with bcrypt("1234")
+  Seed all 9 income types (is_system=true)
+  Seed all 22 expense categories (is_system=true)
+  Seed 2 prior months of entries for EMP001 so Dashboard 
+  shows real data immediately on first login
+
+API ENDPOINTS:
+
+  Auth  (no JWT required)
+    POST   /api/auth/login          { employeeId, password }
+                                    → 200 + httpOnly JWT cookie (8h)
+                                    + { userId, fullName, employeeId }
+    DELETE /api/auth/logout         → clears cookie → 200
+    GET    /api/auth/me             → current user profile
+
+  Masters  (JWT required)
+    GET    /api/masters/income-types
+    POST   /api/masters/income-types          { name }
+    DELETE /api/masters/income-types/{id}     (reject if is_system=true)
+    GET    /api/masters/expense-categories
+    POST   /api/masters/expense-categories    { name }
+    DELETE /api/masters/expense-categories/{id}
+
+  Entries  (JWT required)
+    GET    /api/entries                       list all (summary)
+    GET    /api/entries/{month}/{year}        full entry with line items
+    POST   /api/entries                       create or update
+           Body: { month, year, incomeItems[], expenseItems[] }
+           Backend computes: totalIncome, totalExpense, balance,
+                             savingsRate, suggestion text
+    DELETE /api/entries/{id}
+
+  Reports  (JWT required)
+    GET    /api/reports/trend?months=6        last N months summary
+    GET    /api/reports/summary/{month}/{year} income vs expense breakdown
+
+  Suggestions  (JWT required)
+    GET    /api/suggestions/{month}/{year}    
+           Returns full suggestion object for that month's balance:
+           { tier, heading, advicePoints[], allocationMap{}, 
+             balanceAmount, monthYear }
+
+BACKEND FILE LIST (generate all, no truncation):
+  B1.  pom.xml
+  B2.  src/main/resources/application.properties
+  B3.  src/main/resources/data.sql
+  B4.  FintrackApplication.java
+  B5.  config/SecurityConfig.java
+  B6.  config/JwtUtil.java
+  B7.  config/JwtAuthFilter.java
+  B8.  entity/User.java
+  B9.  entity/IncomeType.java
+  B10. entity/ExpenseCategory.java
+  B11. entity/MonthlyEntry.java
+  B12. entity/IncomeItem.java
+  B13. entity/ExpenseItem.java
+  B14. dto/LoginRequest.java
+  B15. dto/LoginResponse.java
+  B16. dto/UserProfileDto.java
+  B17. dto/IncomeTypeDto.java
+  B18. dto/ExpenseCategoryDto.java
+  B19. dto/MonthlyEntryRequest.java
+  B20. dto/MonthlyEntryResponse.java
+  B21. dto/EntrySummaryDto.java
+  B22. dto/TrendDto.java
+  B23. dto/SuggestionDto.java
+  B24. dto/ApiResponse.java
+  B25. repository/UserRepository.java
+  B26. repository/IncomeTypeRepository.java
+  B27. repository/ExpenseCategoryRepository.java
+  B28. repository/MonthlyEntryRepository.java
+  B29. repository/IncomeItemRepository.java
+  B30. repository/ExpenseItemRepository.java
+  B31. service/AuthService.java
+  B32. service/MasterService.java
+  B33. service/EntryService.java
+  B34. service/ReportService.java
+  B35. service/SuggestionService.java
+  B36. controller/AuthController.java
+  B37. controller/MasterController.java
+  B38. controller/EntryController.java
+  B39. controller/ReportController.java
+  B40. controller/SuggestionController.java
+  B41. exception/GlobalExceptionHandler.java
+  B42. exception/ResourceNotFoundException.java
+  B43. exception/SystemRecordException.java
+
+[FORMAT]
+DESIGN SYSTEM:
+  • Colors:
+      Primary Blue   #1A4FBA  |  Medium Blue  #2A7BDE
+      Light Blue     #EBF3FF  |  Accent       #0EA5E9
+      White          #FFFFFF  |  Surface      #F5F8FF
+      Text dark      #0F1E3C  |  Text muted   #64748B
+      Success        #10B981  |  Warning      #F59E0B
+      Danger         #EF4444  |  Border       #D1E3FF
+
+  • Parallax/glass:
+      Hero: background-attachment: fixed on dark blue SVG pattern
+      Cards: backdrop-filter: blur(10px), 
+             background: rgba(255,255,255,0.75),
+             border: 1px solid rgba(209,227,255,0.6),
+             box-shadow: 0 4px 24px rgba(26,79,186,0.08)
+
+  • Typography: Google Fonts 'Plus Jakarta Sans' (headings), 
+    'Inter' (body). Scale: 40/28/22/18/15px. Body: 14px.
+    Currency: font-variant-numeric: tabular-nums
+
+  • Spacing: 4/8/12/16/24/32/48/64px
+  • Radius: 16px cards, 10px inputs/buttons, 999px pills
+
+  • Motion:
+      Page enter: 300ms fade + 8px translateY
+      Card hover: translateY(-3px)
+      Step transitions: slide 200ms
+      Dashboard counters: 0 → value, 800ms rAF animation
+      Parallax: passive scroll listener on hero
+
+  • Responsive: mobile-first, hamburger < 768px
+  • Accessibility: ARIA labels, keyboard nav, contrast ≥ 4.5:1
+  • Icons: Lucide React icons throughout
+  • Currency: Intl.NumberFormat('en-IN', 
+      { style:'currency', currency:'INR', maximumFractionDigits:0 })
+
+BACKEND STANDARDS:
+  • All endpoints return: { success, message, data }
+  • HTTP codes: 200, 201, 400, 401, 403, 404, 409
+  • CORS: allow http://localhost:5173, credentials: true
+  • BCrypt strength 10 for passwords
+  • @Transactional on all write service methods
+  • JWT: externalized jwt.secret + jwt.expiration=28800000
+
+DELIVERABLE RULES:
+  • Label every file: "// FILE: src/pages/Dashboard.jsx"
+  • Do NOT truncate — complete every file before moving to next
+  • Generate in this order: F1–F27 (frontend) then B1–B43 (backend)
+  • All 5 navigation links must be fully wired end-to-end
+  • Investment suggestion logic runs on both frontend 
+    (real-time Step 4 preview) and backend (persistence)
+  • SuggestionsPage.jsx must have its own dedicated route /suggestions
+    and be accessible from navbar, dashboard, entry, and reports
+  • Reports page charts must read from API data, not hardcoded values
+  • On EMP001 first login, dashboard shows 2 months of seeded DB data
+  • Zero placeholder buttons — every button navigates or calls an API
