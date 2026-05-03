@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import './_shared/_group.css';
 import { Eye, EyeOff, ArrowLeft, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { LandingPage } from './LandingPage';
 
 const MOCK_USERS: Record<string, { name: string; role: string }> = {
   'EMP001': { name: 'Ravi Shankar', role: 'EMPLOYEE' },
@@ -47,11 +48,36 @@ export function LoginPage() {
 
   if (navTarget === 'landing') {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F5F8FF' }}>
-        <div style={{ background: '#fff', borderRadius: 20, padding: '48px 64px', textAlign: 'center', boxShadow: '0 4px 24px rgba(26,79,186,0.1)', maxWidth: 400 }}>
-          <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 22, fontWeight: 700, color: '#0F1E3C', marginBottom: 20 }}>Back to Landing Page</h2>
-          <button onClick={resetForm} style={{ background: '#1A4FBA', color: '#fff', border: 'none', borderRadius: 10, padding: '12px 32px', fontFamily: "'Inter', sans-serif", fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>← Back to Login</button>
+      <div style={{ position: 'relative' }}>
+        {/* Floating "Back to Login" pill — always visible while on landing */}
+        <div style={{
+          position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 9999, display: 'flex', alignItems: 'center',
+        }}>
+          <button
+            onClick={resetForm}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              background: '#fff', color: '#1A4FBA',
+              border: '1.5px solid #D1E3FF',
+              borderRadius: 999, padding: '10px 22px',
+              fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 700,
+              cursor: 'pointer', boxShadow: '0 4px 20px rgba(26,79,186,0.18)',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = '#EBF3FF';
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 6px 28px rgba(26,79,186,0.25)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.background = '#fff';
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 4px 20px rgba(26,79,186,0.18)';
+            }}
+          >
+            <ArrowLeft size={15} /> Back to Login
+          </button>
         </div>
+        <LandingPage />
       </div>
     );
   }
