@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import './_shared/_group.css';
-import { MOCK_USER, MONTHLY_DATA, getInvestmentSuggestion } from './_shared/mockData';
+import { MOCK_USER, MONTHLY_DATA, INCOME_TYPES, EXPENSE_CATEGORIES, getInvestmentSuggestion } from './_shared/mockData';
 import { AppLayout } from './_shared/AppLayout';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { TrendingUp, TrendingDown, IndianRupee, Percent, ChevronRight, Plus, Lightbulb, BarChart2, CalendarSearch } from 'lucide-react';
+import { TrendingUp, TrendingDown, IndianRupee, Percent, ChevronRight, Plus, Lightbulb, BarChart2, Search, X, Calendar, DollarSign, ShoppingCart, Zap } from 'lucide-react';
 
 const fmt = (n: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
 
@@ -55,6 +55,8 @@ function getDate() {
 export function Dashboard() {
   const [navTarget, setNavTarget] = useState<string | null>(null);
   const [selectedMonthIndex, setSelectedMonthIndex] = useState(MONTHLY_DATA.length - 1);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const selectedMonth = MONTHLY_DATA[selectedMonthIndex];
   const suggestion = getInvestmentSuggestion(selectedMonth.balance);
@@ -84,23 +86,134 @@ export function Dashboard() {
   const expensePct = Math.round((selectedMonth.totalExpense / selectedMonth.totalIncome) * 100);
   const savingsLabel = selectedMonth.savingsRate >= 40 ? 'Excellent!' : selectedMonth.savingsRate >= 25 ? 'Good job!' : 'Keep saving!';
 
-  const monthSelector = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#EBF3FF', borderRadius: 10, padding: '6px 12px', border: '1px solid #D1E3FF', cursor: 'pointer' }}>
-      <CalendarSearch size={15} color="#1A4FBA" />
-      <select
-        value={selectedMonthIndex}
-        onChange={e => setSelectedMonthIndex(Number(e.target.value))}
-        style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: 13, fontWeight: 700, color: '#1A4FBA', cursor: 'pointer', fontFamily: "'Inter', sans-serif", appearance: 'none', paddingRight: 4 }}
-      >
-        {MONTHLY_DATA.map((m, i) => (
-          <option key={i} value={i}>{m.month} {m.year}</option>
-        ))}
-      </select>
-    </div>
+  // ── Search data sources ──────────────────────────────────────────────────
+  type SearchResult = { id: string; label: string; sub: string; category: string; icon: React.ReactNode; action?: () => void };
+  const q = searchQuery.trim().toLowerCase();
+  const allResults: SearchResult[] = [
+    ...MONTHLY_DATA.map((m, i) => ({
+      id: `month-${i}`, label: `${m.month} ${m.year}`,
+      sub: `Income ₹${(m.totalIncome/1000).toFixed(0)}K · Expense ₹${(m.totalExpense/1000).toFixed(0)}K · Balance ₹${(m.balance/1000).toFixed(0)}K`,
+      category: 'Months', icon: <Calendar size={14} />,
+      action: () => { setSelectedMonthIndex(i); setSearchOpen(false); setSearchQuery(''); }
+    })),
+    ...INCOME_TYPES.map((t, i) => ({
+      id: `inc-${i}`, label: t, sub: 'Income type', category: 'Income Types', icon: <DollarSign size={14} />,
+    })),
+    ...EXPENSE_CATEGORIES.map((c, i) => ({
+      id: `exp-${i}`, label: c, sub: 'Expense category', category: 'Expense Categories', icon: <ShoppingCart size={14} />,
+    })),
+    { id: 'qa-entry', label: 'Add / Edit Monthly Entry', sub: 'Log income and expenses', category: 'Quick Actions', icon: <Plus size={14} />, action: () => { setNavTarget('entry'); setSearchOpen(false); setSearchQuery(''); } },
+    { id: 'qa-reports', label: 'View Reports', sub: 'Charts and 6-month trends', category: 'Quick Actions', icon: <BarChart2 size={14} />, action: () => { setNavTarget('reports'); setSearchOpen(false); setSearchQuery(''); } },
+    { id: 'qa-suggestions', label: 'Investment Suggestions', sub: 'Smart advice for your savings', category: 'Quick Actions', icon: <Lightbulb size={14} />, action: () => { setNavTarget('suggestions'); setSearchOpen(false); setSearchQuery(''); } },
+    { id: 'qa-masters', label: 'Manage Masters', sub: 'Income types & expense categories', category: 'Quick Actions', icon: <Zap size={14} />, action: () => { setNavTarget('masters'); setSearchOpen(false); setSearchQuery(''); } },
+  ];
+
+  const filtered = q
+    ? allResults.filter(r => r.label.toLowerCase().includes(q) || r.sub.toLowerCase().includes(q) || r.category.toLowerCase().includes(q))
+    : allResults.filter(r => r.category === 'Months' || r.category === 'Quick Actions');
+
+  const grouped: Record<string, SearchResult[]> = {};
+  filtered.forEach(r => { grouped[r.category] = grouped[r.category] ? [...grouped[r.category], r] : [r]; });
+
+  const categoryColors: Record<string, string> = {
+    'Months': '#1A4FBA', 'Income Types': '#10B981', 'Expense Categories': '#F59E0B', 'Quick Actions': '#7C3AED'
+  };
+  const categoryBg: Record<string, string> = {
+    'Months': '#EBF3FF', 'Income Types': '#D1FAE5', 'Expense Categories': '#FEF3C7', 'Quick Actions': '#EDE9FE'
+  };
+
+  const searchIcon = (
+    <button
+      onClick={() => setSearchOpen(true)}
+      title="Search"
+      style={{ width: 36, height: 36, borderRadius: 10, background: '#F5F8FF', border: '1.5px solid #D1E3FF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', transition: 'all 0.15s' }}
+      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#EBF3FF'; (e.currentTarget as HTMLButtonElement).style.color = '#1A4FBA'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#1A4FBA'; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#F5F8FF'; (e.currentTarget as HTMLButtonElement).style.color = '#64748B'; (e.currentTarget as HTMLButtonElement).style.borderColor = '#D1E3FF'; }}
+    >
+      <Search size={16} />
+    </button>
   );
 
   return (
-    <AppLayout currentPage="dashboard" onNavigate={setNavTarget} user={MOCK_USER} headerRight={monthSelector}>
+    <AppLayout currentPage="dashboard" onNavigate={setNavTarget} user={MOCK_USER} headerRight={searchIcon}>
+      {/* ── Search overlay ───────────────────────────────────────────────── */}
+      {searchOpen && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(15,30,60,0.5)', backdropFilter: 'blur(6px)', zIndex: 500, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 80 }}
+          onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
+        >
+          <div
+            style={{ width: '100%', maxWidth: 560, background: '#fff', borderRadius: 20, boxShadow: '0 24px 80px rgba(0,0,0,0.25)', overflow: 'hidden', animation: 'searchIn 0.18s ease' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <style>{`@keyframes searchIn { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:none} }`}</style>
+
+            {/* Input row */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 20px', borderBottom: '1px solid #EBF3FF' }}>
+              <Search size={18} color="#1A4FBA" style={{ flexShrink: 0 }} />
+              <input
+                autoFocus
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                onKeyDown={e => e.key === 'Escape' && (setSearchOpen(false), setSearchQuery(''))}
+                placeholder="Search months, income types, expenses, actions…"
+                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, fontFamily: "'Inter', sans-serif", color: '#0F1E3C', background: 'transparent', fontWeight: 500 }}
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', display: 'flex', padding: 0 }}>
+                  <X size={16} />
+                </button>
+              )}
+              <kbd style={{ fontSize: 11, color: '#94A3B8', background: '#F1F5F9', borderRadius: 6, padding: '3px 7px', fontFamily: 'monospace', border: '1px solid #D1E3FF', cursor: 'pointer' }} onClick={() => { setSearchOpen(false); setSearchQuery(''); }}>Esc</kbd>
+            </div>
+
+            {/* Results */}
+            <div style={{ maxHeight: 420, overflowY: 'auto', padding: '12px 0' }}>
+              {Object.keys(grouped).length === 0 ? (
+                <div style={{ padding: '32px', textAlign: 'center', color: '#94A3B8', fontSize: 14 }}>
+                  No results for "<strong>{searchQuery}</strong>"
+                </div>
+              ) : (
+                Object.entries(grouped).map(([cat, results]) => (
+                  <div key={cat}>
+                    {/* Category header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 20px 4px', marginBottom: 2 }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: 'uppercase', color: categoryColors[cat] }}>{cat}</span>
+                      <span style={{ flex: 1, height: 1, background: categoryBg[cat] }} />
+                    </div>
+                    {/* Items */}
+                    {results.map(r => (
+                      <div
+                        key={r.id}
+                        onClick={r.action}
+                        style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px', cursor: r.action ? 'pointer' : 'default', transition: 'background 0.12s' }}
+                        onMouseEnter={e => { if (r.action) (e.currentTarget as HTMLDivElement).style.background = categoryBg[cat]; }}
+                        onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = 'transparent'}
+                      >
+                        <div style={{ width: 30, height: 30, borderRadius: 8, background: categoryBg[cat], color: categoryColors[cat], display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          {r.icon}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: '#0F1E3C', marginBottom: 1 }}>{r.label}</div>
+                          <div style={{ fontSize: 11, color: '#94A3B8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.sub}</div>
+                        </div>
+                        {r.action && <ChevronRight size={14} color="#CBD5E1" />}
+                      </div>
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer hint */}
+            <div style={{ padding: '10px 20px', borderTop: '1px solid #EBF3FF', display: 'flex', gap: 16, fontSize: 11, color: '#94A3B8' }}>
+              <span>↵ Select</span><span>↑↓ Navigate</span><span>Esc Close</span>
+              <span style={{ marginLeft: 'auto' }}>{filtered.length} result{filtered.length !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ animation: 'fadeSlideIn 0.3s ease forwards' }}>
         <style>{`@keyframes fadeSlideIn { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:none } }`}</style>
 
