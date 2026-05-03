@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import './_shared/_group.css';
 import { MOCK_USER, INCOME_TYPES, EXPENSE_CATEGORIES } from './_shared/mockData';
 import { AppLayout } from './_shared/AppLayout';
-import { Plus, Trash2, ArrowLeft, X, Check } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, X, Check, Pencil } from 'lucide-react';
 
 interface MasterItem { id: number; name: string; isSystem: boolean }
 
@@ -21,6 +21,7 @@ export function Masters() {
   const [newExpenseName, setNewExpenseName] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<MasterItem | null>(null);
   const [tooltip, setTooltip] = useState<number | null>(null);
+  const [editingItem, setEditingItem] = useState<{ id: number; draft: string } | null>(null);
 
   const items = tab === 'income' ? incomeItems : expenseItems;
   const setItems = tab === 'income' ? setIncomeItems : setExpenseItems;
@@ -39,6 +40,19 @@ export function Masters() {
     setItems(prev => prev.filter(i => i.id !== item.id));
     setConfirmDelete(null);
   };
+
+  const startEdit = (item: MasterItem) => {
+    setEditingItem({ id: item.id, draft: item.name });
+    setTooltip(null);
+  };
+
+  const saveEdit = () => {
+    if (!editingItem || !editingItem.draft.trim()) return;
+    setItems(prev => prev.map(i => i.id === editingItem.id ? { ...i, name: editingItem.draft.trim() } : i));
+    setEditingItem(null);
+  };
+
+  const cancelEdit = () => setEditingItem(null);
 
   if (navTarget) {
     const labels: Record<string, string> = { dashboard: 'Dashboard', entry: 'Monthly Entry', suggestions: 'Suggestions', reports: 'Reports', login: 'Logout' };
@@ -120,44 +134,82 @@ export function Masters() {
           <div style={{ padding: '24px' }}>
             {/* Items list */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-              {items.map(item => (
-                <div
-                  key={item.id}
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: '#F5F8FF', borderRadius: 12, border: '1px solid #E8F0FF', transition: 'background 0.15s' }}
-                  onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = '#EBF3FF'}
-                  onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = '#F5F8FF'}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: item.isSystem ? '#94A3B8' : '#1A4FBA', flexShrink: 0 }} />
-                    <span style={{ fontSize: 14, color: '#0F1E3C', fontWeight: 500 }}>{item.name}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ position: 'relative' }}>
-                      <span
-                        style={{ background: item.isSystem ? '#F1F5F9' : '#EBF3FF', color: item.isSystem ? '#64748B' : '#1A4FBA', border: `1px solid ${item.isSystem ? '#D1E3FF' : '#BFDBFE'}`, borderRadius: 999, padding: '3px 12px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, cursor: item.isSystem ? 'help' : 'default' }}
-                        onMouseEnter={() => item.isSystem && setTooltip(item.id)}
-                        onMouseLeave={() => setTooltip(null)}
-                      >
-                        {item.isSystem ? 'System' : 'Custom'}
-                      </span>
-                      {tooltip === item.id && (
-                        <div style={{ position: 'absolute', bottom: '130%', right: 0, background: '#0F1E3C', color: '#fff', borderRadius: 8, padding: '6px 12px', fontSize: 12, whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 10 }}>
-                          System defaults cannot be deleted
-                          <div style={{ position: 'absolute', bottom: -5, right: 16, width: 10, height: 10, background: '#0F1E3C', transform: 'rotate(45deg)' }} />
+              {items.map(item => {
+                const isEditing = editingItem?.id === item.id;
+                return (
+                  <div
+                    key={item.id}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', background: isEditing ? '#EBF3FF' : '#F5F8FF', borderRadius: 12, border: `1px solid ${isEditing ? '#93C5FD' : '#E8F0FF'}`, transition: 'all 0.15s', gap: 12 }}
+                    onMouseEnter={e => { if (!isEditing) (e.currentTarget as HTMLDivElement).style.background = '#EBF3FF'; }}
+                    onMouseLeave={e => { if (!isEditing) (e.currentTarget as HTMLDivElement).style.background = '#F5F8FF'; }}
+                  >
+                    {isEditing ? (
+                      /* ── Inline edit row ── */
+                      <>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: item.isSystem ? '#94A3B8' : '#1A4FBA', flexShrink: 0 }} />
+                        <input
+                          autoFocus
+                          value={editingItem!.draft}
+                          onChange={e => setEditingItem(prev => prev ? { ...prev, draft: e.target.value } : null)}
+                          onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit(); }}
+                          style={{ flex: 1, padding: '7px 12px', border: '1.5px solid #93C5FD', borderRadius: 8, fontSize: 14, fontFamily: "'Inter', sans-serif", color: '#0F1E3C', background: '#fff', outline: 'none', fontWeight: 500 }}
+                        />
+                        <button onClick={saveEdit} title="Save" style={{ width: 32, height: 32, borderRadius: 8, background: '#1A4FBA', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', flexShrink: 0 }}>
+                          <Check size={14} />
+                        </button>
+                        <button onClick={cancelEdit} title="Cancel" style={{ width: 32, height: 32, borderRadius: 8, background: '#fff', border: '1px solid #D1E3FF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', flexShrink: 0 }}>
+                          <X size={14} />
+                        </button>
+                      </>
+                    ) : (
+                      /* ── Normal row ── */
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: item.isSystem ? '#94A3B8' : '#1A4FBA', flexShrink: 0 }} />
+                          <span style={{ fontSize: 14, color: '#0F1E3C', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
                         </div>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => !item.isSystem && setConfirmDelete(item)}
-                      disabled={item.isSystem}
-                      title={item.isSystem ? 'System defaults cannot be deleted' : 'Delete'}
-                      style={{ width: 32, height: 32, borderRadius: 8, background: item.isSystem ? '#F1F5F9' : '#FEE2E2', border: 'none', cursor: item.isSystem ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: item.isSystem ? '#CBD5E1' : '#EF4444', transition: 'all 0.15s' }}
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {/* Badge */}
+                          <div style={{ position: 'relative' }}>
+                            <span
+                              style={{ background: item.isSystem ? '#F1F5F9' : '#EBF3FF', color: item.isSystem ? '#64748B' : '#1A4FBA', border: `1px solid ${item.isSystem ? '#D1E3FF' : '#BFDBFE'}`, borderRadius: 999, padding: '3px 12px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, cursor: 'help' }}
+                              onMouseEnter={() => setTooltip(item.id)}
+                              onMouseLeave={() => setTooltip(null)}
+                            >
+                              {item.isSystem ? 'System' : 'Custom'}
+                            </span>
+                            {tooltip === item.id && (
+                              <div style={{ position: 'absolute', bottom: '130%', right: 0, background: '#0F1E3C', color: '#fff', borderRadius: 8, padding: '6px 12px', fontSize: 12, whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 10 }}>
+                                {item.isSystem ? 'System items can be edited but not deleted' : 'Custom item — can be edited or deleted'}
+                                <div style={{ position: 'absolute', bottom: -5, right: 16, width: 10, height: 10, background: '#0F1E3C', transform: 'rotate(45deg)' }} />
+                              </div>
+                            )}
+                          </div>
+                          {/* Edit button — available for ALL items */}
+                          <button
+                            onClick={() => startEdit(item)}
+                            title="Edit name"
+                            style={{ width: 32, height: 32, borderRadius: 8, background: '#EBF3FF', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1A4FBA', transition: 'all 0.15s' }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = '#BFDBFE'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = '#EBF3FF'; }}
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          {/* Delete button — disabled for system items */}
+                          <button
+                            onClick={() => !item.isSystem && setConfirmDelete(item)}
+                            disabled={item.isSystem}
+                            title={item.isSystem ? 'System items cannot be deleted' : 'Delete'}
+                            style={{ width: 32, height: 32, borderRadius: 8, background: item.isSystem ? '#F1F5F9' : '#FEE2E2', border: 'none', cursor: item.isSystem ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: item.isSystem ? '#CBD5E1' : '#EF4444', transition: 'all 0.15s' }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Add new */}
@@ -187,11 +239,11 @@ export function Masters() {
               </button>
             )}
 
-            <div style={{ marginTop: 20, padding: '12px 16px', background: '#F5F8FF', borderRadius: 10, fontSize: 13, color: '#64748B', display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ marginTop: 20, padding: '12px 16px', background: '#F5F8FF', borderRadius: 10, fontSize: 13, color: '#64748B', display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#94A3B8', flexShrink: 0 }} />
-              System items ({items.filter(i => i.isSystem).length}) cannot be deleted.
+              <span>System items ({items.filter(i => i.isSystem).length}) — can be <strong style={{ color: '#1A4FBA' }}>edited</strong>, but not deleted.</span>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#1A4FBA', flexShrink: 0, marginLeft: 8 }} />
-              Custom items ({items.filter(i => !i.isSystem).length}) can be deleted.
+              <span>Custom items ({items.filter(i => !i.isSystem).length}) — can be <strong style={{ color: '#1A4FBA' }}>edited</strong> or <strong style={{ color: '#EF4444' }}>deleted</strong>.</span>
             </div>
           </div>
         </div>
