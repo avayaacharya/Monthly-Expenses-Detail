@@ -3,7 +3,7 @@ import './_shared/_group.css';
 import { MOCK_USER, MONTHLY_DATA, getInvestmentSuggestion } from './_shared/mockData';
 import { AppLayout } from './_shared/AppLayout';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { TrendingUp, TrendingDown, IndianRupee, Percent, ChevronRight, Plus, Lightbulb, BarChart2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, IndianRupee, Percent, ChevronRight, Plus, Lightbulb, BarChart2, CalendarSearch } from 'lucide-react';
 
 const fmt = (n: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
 
@@ -40,8 +40,6 @@ function KpiCard({ title, value, subtitle, color, bg, icon }: { title: string; v
 }
 
 const chartData = MONTHLY_DATA.map(m => ({ month: m.month.slice(0, 3), balance: m.balance, income: m.totalIncome, expense: m.totalExpense }));
-const latestMonth = MONTHLY_DATA[MONTHLY_DATA.length - 1];
-const suggestion = getInvestmentSuggestion(latestMonth.balance);
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -56,10 +54,15 @@ function getDate() {
 
 export function Dashboard() {
   const [navTarget, setNavTarget] = useState<string | null>(null);
-  const income = useCountUp(latestMonth.totalIncome);
-  const expense = useCountUp(latestMonth.totalExpense);
-  const balance = useCountUp(latestMonth.balance);
-  const rate = useCountUp(Math.round(latestMonth.savingsRate * 10));
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState(MONTHLY_DATA.length - 1);
+
+  const selectedMonth = MONTHLY_DATA[selectedMonthIndex];
+  const suggestion = getInvestmentSuggestion(selectedMonth.balance);
+
+  const income = useCountUp(selectedMonth.totalIncome);
+  const expense = useCountUp(selectedMonth.totalExpense);
+  const balance = useCountUp(selectedMonth.balance);
+  const rate = useCountUp(Math.round(selectedMonth.savingsRate * 10));
 
   if (navTarget) {
     const labels: Record<string, string> = { entry: 'Monthly Entry', suggestions: 'Investment Suggestions', reports: 'Financial Reports', masters: 'Masters', login: 'Login (Logout)' };
@@ -77,8 +80,27 @@ export function Dashboard() {
     );
   }
 
+  const monthLabel = `${selectedMonth.month} ${selectedMonth.year}`;
+  const expensePct = Math.round((selectedMonth.totalExpense / selectedMonth.totalIncome) * 100);
+  const savingsLabel = selectedMonth.savingsRate >= 40 ? 'Excellent!' : selectedMonth.savingsRate >= 25 ? 'Good job!' : 'Keep saving!';
+
+  const monthSelector = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#EBF3FF', borderRadius: 10, padding: '6px 12px', border: '1px solid #D1E3FF', cursor: 'pointer' }}>
+      <CalendarSearch size={15} color="#1A4FBA" />
+      <select
+        value={selectedMonthIndex}
+        onChange={e => setSelectedMonthIndex(Number(e.target.value))}
+        style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: 13, fontWeight: 700, color: '#1A4FBA', cursor: 'pointer', fontFamily: "'Inter', sans-serif", appearance: 'none', paddingRight: 4 }}
+      >
+        {MONTHLY_DATA.map((m, i) => (
+          <option key={i} value={i}>{m.month} {m.year}</option>
+        ))}
+      </select>
+    </div>
+  );
+
   return (
-    <AppLayout currentPage="dashboard" onNavigate={setNavTarget} user={MOCK_USER}>
+    <AppLayout currentPage="dashboard" onNavigate={setNavTarget} user={MOCK_USER} headerRight={monthSelector}>
       <div style={{ animation: 'fadeSlideIn 0.3s ease forwards' }}>
         <style>{`@keyframes fadeSlideIn { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:none } }`}</style>
 
@@ -98,17 +120,19 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Last month summary */}
+        {/* Selected month summary */}
         <div style={{ marginBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 18, fontWeight: 700, color: '#0F1E3C' }}>April 2025 Summary</h2>
-            <span style={{ fontSize: 12, color: '#64748B' }}>Last saved month</span>
+            <h2 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: 18, fontWeight: 700, color: '#0F1E3C' }}>{monthLabel} Summary</h2>
+            <span style={{ fontSize: 12, color: '#64748B' }}>
+              {selectedMonthIndex === MONTHLY_DATA.length - 1 ? 'Last saved month' : `${MONTHLY_DATA.length - 1 - selectedMonthIndex} month(s) ago`}
+            </span>
           </div>
           <div style={{ display: 'flex', gap: 16 }}>
             <KpiCard title="Total Income" value={fmt(income)} subtitle="vs last month" color="#1A4FBA" bg="#EBF3FF" icon={<IndianRupee size={24} />} />
-            <KpiCard title="Total Expenses" value={fmt(expense)} subtitle="58% of income" color="#F59E0B" bg="#FEF3C7" icon={<TrendingDown size={24} />} />
+            <KpiCard title="Total Expenses" value={fmt(expense)} subtitle={`${expensePct}% of income`} color="#F59E0B" bg="#FEF3C7" icon={<TrendingDown size={24} />} />
             <KpiCard title="Net Balance" value={fmt(balance)} subtitle="Saved this month" color="#10B981" bg="#D1FAE5" icon={<TrendingUp size={24} />} />
-            <KpiCard title="Savings Rate" value={`${(rate / 10).toFixed(1)}%`} subtitle="Excellent!" color="#0D9488" bg="#CCFBF1" icon={<Percent size={24} />} />
+            <KpiCard title="Savings Rate" value={`${(rate / 10).toFixed(1)}%`} subtitle={savingsLabel} color="#0D9488" bg="#CCFBF1" icon={<Percent size={24} />} />
           </div>
         </div>
 

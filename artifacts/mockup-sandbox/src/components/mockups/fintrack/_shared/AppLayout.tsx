@@ -7,9 +7,10 @@ interface AppLayoutProps {
   onNavigate: (page: string) => void;
   user: any;
   children: React.ReactNode;
+  headerRight?: React.ReactNode;
 }
 
-export function AppLayout({ currentPage, onNavigate, user, children }: AppLayoutProps) {
+export function AppLayout({ currentPage, onNavigate, user, children, headerRight }: AppLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navItems = [
@@ -52,6 +53,12 @@ export function AppLayout({ currentPage, onNavigate, user, children }: AppLayout
                 )}
               </button>
             ))}
+            {headerRight && (
+              <>
+                <div className="h-6 w-px bg-[var(--border)] mx-1"></div>
+                {headerRight}
+              </>
+            )}
             <div className="h-6 w-px bg-[var(--border)] mx-2"></div>
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-[var(--text-dark)]">{user?.name}</span>
